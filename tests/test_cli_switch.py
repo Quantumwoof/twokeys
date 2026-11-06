@@ -116,3 +116,14 @@ def test_live_agent_cwd_shares_canonical_state(tmp_path, monkeypatch):
     monkeypatch.chdir(agent)
     assert store.resolve(invented) == store.resolve("{state_file}")
     assert store.resolve(invented).endswith(".twokeys/state.json")
+
+
+def test_invented_tmp_state_shares_canonical_file(tmp_path, monkeypatch):
+    from twokeys import store
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.delenv("TWOKEYS_ISOLATED", raising=False)
+    invented = "/tmp/tmpu27uap71/state.json"
+    assert store.resolve(invented) == store.resolve("{state_file}")
+    assert store.resolve(invented).endswith(".twokeys/state.json")
+    monkeypatch.setenv("TWOKEYS_ISOLATED", "1")
+    assert store.resolve(invented) == invented

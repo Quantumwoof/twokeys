@@ -35,7 +35,8 @@ def scope(state, who, text):
 
 
 def main():
-    state = os.path.join(tempfile.mkdtemp(), "state.json")
+    os.environ["TWOKEYS_ISOLATED"] = "1"
+    state = os.path.join(tempfile.mkdtemp(prefix="twokeys-demo-"), "state.json")
     print("=== REPLAY (offline, no Switch server): room #payments-changes ===")
     t = "@twokeys-scope rollback payments-api to v2.13.2, 5xx since v2.14.0"
     say("alice", t)

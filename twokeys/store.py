@@ -1,6 +1,7 @@
 """JSON persistence so the scope and hands agents (separate processes) share one gate."""
 import json
 import os
+import re
 
 from . import policy
 from .gate import Actor, Gate, Request
@@ -8,29 +9,41 @@ from .sandbox import Sandbox
 
 FALLBACK = os.path.expanduser("~/.twokeys/state.json")
 
+# Codex often sets TWOKEYS_STATE=/tmp/tmpXXXX/state.json (mkdtemp-style) and cds
+# out of the agent directory, which used to bypass the cwd pin.
+_INVENTED_TMP = re.compile(r"^/tmp/tmp[A-Za-z0-9_]+/state\.json$")
+
 
 def _as_live_switch_agent():
-    """Scope and Hands run with cwd under ~/.switch/agents/.../*-twokeys-*."""
-    cwd = os.getcwd()
-    return any(marker in cwd for marker in ("-twokeys-scope", "-twokeys-hands", "payments-twokeys"))
+    """True when this process is one of the live Switch TwoKeys agents."""
+    parts = [os.getcwd(), os.environ.get("PWD") or "", os.path.abspath(__file__)]
+    blob = " ".join(parts)
+    return any(marker in blob for marker in ("-twokeys-scope", "-twokeys-hands", "payments-twokeys", "/.switch/agents/"))
+
+
+def _isolated():
+    return bool(os.environ.get("TWOKEYS_ISOLATED"))
 
 
 def resolve(path=None):
     """Turn a CLI/env path into an absolute file path.
 
-    Live Switch templates left `{state_file}` unexpanded in agent instructions,
-    which made agents invent tempfiles — and invent *different* ones, so Hands
-    could not see a request Scope had just opened. When we are one of those
-    agents, always use the shared fallback. Tests and `twokeys demo` pass an
-    explicit --state from another directory and are unchanged.
+    Live Switch templates left `{state_file}` unexpanded, so agents invented
+    *different* tempfiles and Hands could not see a request Scope had just
+    opened. Live agents, and any mkdtemp-style `/tmp/tmp*/state.json` path,
+    share ~/.twokeys/state.json. Tests and `twokeys demo` opt out with
+    TWOKEYS_ISOLATED or a non-mkdtemp path.
     """
-    if _as_live_switch_agent():
+    if not _isolated() and _as_live_switch_agent():
         return os.path.abspath(FALLBACK)
     raw = FALLBACK if path is None else path
     raw = os.path.expanduser(str(raw or ""))
     if not raw or "{" in raw or "}" in raw:
         raw = FALLBACK
-    return os.path.abspath(raw)
+    raw = os.path.abspath(raw)
+    if not _isolated() and _INVENTED_TMP.match(raw):
+        return os.path.abspath(FALLBACK)
+    return raw
 
 
 DEFAULT = resolve(os.environ.get("TWOKEYS_STATE"))
