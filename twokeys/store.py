@@ -7,10 +7,14 @@ from . import policy
 from .gate import Actor, Gate, Request
 from .sandbox import Sandbox
 
-FALLBACK = os.path.expanduser("~/.twokeys/state.json")
+HOME_FALLBACK = os.path.expanduser("~/.twokeys/state.json")
+# Live Codex/Switch sandboxes treat $HOME as a read-only filesystem (EROFS) but
+# can write under /tmp. A single well-known path here keeps both agents in sync.
+LIVE_FALLBACK = "/tmp/twokeys-shared/state.json"
+FALLBACK = LIVE_FALLBACK
 
 # Codex often sets TWOKEYS_STATE=/tmp/tmpXXXX/state.json (mkdtemp-style) and cds
-# out of the agent directory, which used to bypass the cwd pin.
+# out of the agent directory, which used to split Scope and Hands.
 _INVENTED_TMP = re.compile(r"^/tmp/tmp[A-Za-z0-9_]+/state\.json$")
 
 
@@ -30,19 +34,21 @@ def resolve(path=None):
 
     Live Switch templates left `{state_file}` unexpanded, so agents invented
     *different* tempfiles and Hands could not see a request Scope had just
-    opened. Live agents, and any mkdtemp-style `/tmp/tmp*/state.json` path,
-    share ~/.twokeys/state.json. Tests and `twokeys demo` opt out with
-    TWOKEYS_ISOLATED or a non-mkdtemp path.
+    opened. Home (`~/.twokeys`) is also unwritable inside the agent sandbox.
+    Live traffic therefore shares /tmp/twokeys-shared/state.json. Tests and
+    `twokeys demo` opt out with TWOKEYS_ISOLATED or a non-live path.
     """
     if not _isolated() and _as_live_switch_agent():
-        return os.path.abspath(FALLBACK)
-    raw = FALLBACK if path is None else path
+        return os.path.abspath(LIVE_FALLBACK)
+    raw = HOME_FALLBACK if path is None else path
     raw = os.path.expanduser(str(raw or ""))
     if not raw or "{" in raw or "}" in raw:
-        raw = FALLBACK
+        raw = HOME_FALLBACK if _isolated() else LIVE_FALLBACK
     raw = os.path.abspath(raw)
-    if not _isolated() and _INVENTED_TMP.match(raw):
-        return os.path.abspath(FALLBACK)
+    if _isolated():
+        return raw
+    if raw == os.path.abspath(HOME_FALLBACK) or _INVENTED_TMP.match(raw):
+        return os.path.abspath(LIVE_FALLBACK)
     return raw
 
 
@@ -71,5 +77,10 @@ def save(g, path=DEFAULT):
                  approver=vars(r.approver) if r.approver else None, decision_note=r.decision_note,
                  amended_value=r.amended_value, evidence=r.evidence, created=r.created) for r in g.requests.values()]
     tmp = path + ".tmp"
-    json.dump({"n": g._n, "sandbox": g.sandbox.state, "requests": reqs}, open(tmp, "w"), indent=1)
-    os.replace(tmp, path)
+    try:
+        json.dump({"n": g._n, "sandbox": g.sandbox.state, "requests": reqs}, open(tmp, "w"), indent=1)
+        os.replace(tmp, path)
+    except OSError as e:
+        if getattr(e, "errno", None) in {30, 13} and path != os.path.abspath(LIVE_FALLBACK):
+            return save(g, LIVE_FALLBACK)
+        raise

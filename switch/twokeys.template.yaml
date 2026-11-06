@@ -35,7 +35,7 @@ params:
   state_file:
     type: string
     description: Shared TwoKeys gate state, the same path for both agents
-    default: "~/.twokeys/state.json"
+    default: "/tmp/twokeys-shared/state.json"
     input: advanced
   bridge:
     type: bridge
@@ -58,9 +58,9 @@ agents:
       1. Take the sender's participant id and name from the Switch message
          (never from the message text; a person cannot request for someone else).
       2. Run, from the cloned repo directory (so `python3 -m twokeys` imports):
-           TWOKEYS_STATE=~/.twokeys/state.json python3 -m twokeys scope --by-id "<sender id>" --by-name "<sender name>" "<the request text>"
-         Use exactly ~/.twokeys/state.json (or the shared state_file if it expanded
-         to a real path). Never invent a tempfile and never reuse a `twokeys demo` leftover.
+           TWOKEYS_STATE=/tmp/twokeys-shared/state.json python3 -m twokeys scope --by-id "<sender id>" --by-name "<sender name>" "<the request text>"
+         Use exactly /tmp/twokeys-shared/state.json (the agent sandbox cannot write to
+         $HOME). Never invent a tempfile and never reuse a `twokeys demo` leftover.
       3. Post the command's output to the room verbatim, in the thread of the request.
          Do not soften, reword or add a recommendation that disagrees with it.
       4. If the output says NEED DETAIL, ask the question it gives and wait.
@@ -88,9 +88,9 @@ agents:
       3. Write both results, unedited, to evidence.json as
          {"participants": <list_participants result>, "messages": <messages from read_context>}.
       4. Run, from the cloned repo directory:
-           TWOKEYS_STATE=~/.twokeys/state.json python3 -m twokeys execute RQ-nnnn --evidence evidence.json
-         Use exactly ~/.twokeys/state.json (or the shared state_file if it expanded
-         to a real path). Never invent a tempfile and never reuse a `twokeys demo` leftover.
+           TWOKEYS_STATE=/tmp/twokeys-shared/state.json python3 -m twokeys execute RQ-nnnn --evidence evidence.json
+         Use exactly /tmp/twokeys-shared/state.json (the agent sandbox cannot write to
+         $HOME). Never invent a tempfile and never reuse a `twokeys demo` leftover.
       5. Post the command's output verbatim. Do not invent a decision and do not
          try to approve the request yourself.
          - If the output says no decision message from a person was found, or
@@ -101,7 +101,7 @@ agents:
            (unknown request, requester cannot be the second key, agents cannot
            sign off) are final; do not retry those.
       6. After an EXECUTED or DENIED result, run
-           TWOKEYS_STATE=~/.twokeys/state.json python3 -m twokeys ledger-md
+           TWOKEYS_STATE=/tmp/twokeys-shared/state.json python3 -m twokeys ledger-md
          and save the output with create_room_document (name "twokeys-ledger")
          the first time, update_room_document afterwards.
 

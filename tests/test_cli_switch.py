@@ -102,8 +102,8 @@ def test_live_read_context_tree_and_mismatched_ids(tmp_path, capsys):
 def test_placeholder_state_path_falls_back(tmp_path, monkeypatch, capsys):
     from twokeys import store
     assert "{" not in store.resolve("{state_file}")
-    assert store.resolve("{state_file}").endswith(".twokeys/state.json")
-    assert store.resolve("~/.twokeys/state.json").endswith(".twokeys/state.json")
+    assert store.resolve("{state_file}").endswith("twokeys-shared/state.json")
+    assert store.resolve("~/.twokeys/state.json").endswith("twokeys-shared/state.json")
 
 
 def test_live_agent_cwd_shares_canonical_state(tmp_path, monkeypatch):
@@ -111,12 +111,12 @@ def test_live_agent_cwd_shares_canonical_state(tmp_path, monkeypatch):
     monkeypatch.delenv("TWOKEYS_ISOLATED", raising=False)
     monkeypatch.chdir(tmp_path)
     invented = str(tmp_path / "tmpXYZ" / "state.json")
-    assert store.resolve(invented) == invented or store.resolve("{state_file}").endswith(".twokeys/state.json")
+    assert store.resolve(invented) == invented or store.resolve("{state_file}").endswith("twokeys-shared/state.json")
     agent = tmp_path / "payments-twokeys-hands"
     agent.mkdir()
     monkeypatch.chdir(agent)
     assert store.resolve(invented) == store.resolve("{state_file}")
-    assert store.resolve(invented).endswith(".twokeys/state.json")
+    assert store.resolve(invented).endswith("twokeys-shared/state.json")
 
 
 def test_invented_tmp_state_shares_canonical_file(tmp_path, monkeypatch):
@@ -125,6 +125,6 @@ def test_invented_tmp_state_shares_canonical_file(tmp_path, monkeypatch):
     monkeypatch.delenv("TWOKEYS_ISOLATED", raising=False)
     invented = "/tmp/tmpu27uap71/state.json"
     assert store.resolve(invented) == store.resolve("{state_file}")
-    assert store.resolve(invented).endswith(".twokeys/state.json")
+    assert store.resolve(invented).endswith("twokeys-shared/state.json")
     monkeypatch.setenv("TWOKEYS_ISOLATED", "1")
     assert store.resolve(invented) == invented
