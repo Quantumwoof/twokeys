@@ -139,7 +139,7 @@ Video (under 3 minutes): _link added at submission_. Script: [`docs/DEMO_SCRIPT.
 | Criterion | Where to look |
 |---|---|
 | **Use of Switch**: is it central? | [How Switch is used](#how-switch-is-used). The decision is only valid as Switch reports it (participant type, sender, room context, room document); the template creates the whole workflow |
-| **Technical execution**: does it run and reproduce? | Zero-dependency package; `pytest` (29 tests including Switch-linter check); `python -m twokeys.eval`; CI workflow; template passes Switch's own `lint_template` |
+| **Technical execution**: does it run and reproduce? | Zero-dependency package; `pytest` (29 tests including Switch-linter check); `python -m twokeys.eval`; CI workflow ready in `ci/` (copy to `.github/workflows/`); template passes Switch's own `lint_template` |
 | **Creativity and impact**: fresh idea, real team problem? | [Problem](#problem) (NIST CM-3(1), AC-5); [Why different](#why-different); [Results](#results): 0 false executions vs 12 for the baseline |
 | **Presentation**: do the README and video make Switch obvious? | This README's mermaid flow and table; [`docs/DEMO_SCRIPT.md`](docs/DEMO_SCRIPT.md) shows the template, live room, refusal and numbers |
 
