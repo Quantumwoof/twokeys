@@ -108,6 +108,7 @@ def test_placeholder_state_path_falls_back(tmp_path, monkeypatch, capsys):
 
 def test_live_agent_cwd_shares_canonical_state(tmp_path, monkeypatch):
     from twokeys import store
+    monkeypatch.delenv("TWOKEYS_ISOLATED", raising=False)
     monkeypatch.chdir(tmp_path)
     invented = str(tmp_path / "tmpXYZ" / "state.json")
     assert store.resolve(invented) == invented or store.resolve("{state_file}").endswith(".twokeys/state.json")

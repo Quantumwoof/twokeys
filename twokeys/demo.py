@@ -35,6 +35,7 @@ def scope(state, who, text):
 
 
 def main():
+    prev_isolated = os.environ.get("TWOKEYS_ISOLATED")
     os.environ["TWOKEYS_ISOLATED"] = "1"
     state = os.path.join(tempfile.mkdtemp(prefix="twokeys-demo-"), "state.json")
     print("=== REPLAY (offline, no Switch server): room #payments-changes ===")
@@ -55,5 +56,11 @@ def main():
     say("twokeys-scope (hypothetical misbehaving agent)", m2["body"])
     hands(state, rid2, [m2])
     print("\n=== ledger (mirrored into the room document 'twokeys-ledger') ===")
-    cli.main(["--state", state, "ledger-md"])
-    return 0
+    try:
+        cli.main(["--state", state, "ledger-md"])
+        return 0
+    finally:
+        if prev_isolated is None:
+            os.environ.pop("TWOKEYS_ISOLATED", None)
+        else:
+            os.environ["TWOKEYS_ISOLATED"] = prev_isolated
