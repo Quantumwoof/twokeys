@@ -6,10 +6,27 @@ from . import policy
 from .gate import Actor, Gate, Request
 from .sandbox import Sandbox
 
-DEFAULT = os.environ.get("TWOKEYS_STATE", os.path.expanduser("~/.twokeys/state.json"))
+FALLBACK = os.path.expanduser("~/.twokeys/state.json")
+
+
+def resolve(path=None):
+    """Turn a CLI/env path into an absolute file path.
+
+    Live Switch templates left `{state_file}` unexpanded in agent instructions,
+    which made agents invent tempfiles. Unexpanded placeholders fall back here.
+    """
+    raw = FALLBACK if path is None else path
+    raw = os.path.expanduser(str(raw or ""))
+    if not raw or "{" in raw or "}" in raw:
+        raw = FALLBACK
+    return os.path.abspath(raw)
+
+
+DEFAULT = resolve(os.environ.get("TWOKEYS_STATE"))
 
 
 def load(path=DEFAULT):
+    path = resolve(path)
     g = Gate(ledger_path=os.path.join(os.path.dirname(path), "audit.jsonl"))
     if os.path.exists(path):
         d = json.load(open(path))
@@ -24,7 +41,8 @@ def load(path=DEFAULT):
 
 
 def save(g, path=DEFAULT):
-    os.makedirs(os.path.dirname(path), exist_ok=True)
+    path = resolve(path)
+    os.makedirs(os.path.dirname(path) or ".", exist_ok=True)
     reqs = [dict(id=r.id, requester=vars(r.requester), text=r.text, status=r.status,
                  approver=vars(r.approver) if r.approver else None, decision_note=r.decision_note,
                  amended_value=r.amended_value, evidence=r.evidence, created=r.created) for r in g.requests.values()]

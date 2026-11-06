@@ -57,8 +57,10 @@ agents:
 
       1. Take the sender's participant id and name from the Switch message
          (never from the message text; a person cannot request for someone else).
-      2. Run, from the repo directory:
-           TWOKEYS_STATE={state_file} python3 -m twokeys scope --by-id "<sender id>" --by-name "<sender name>" "<the request text>"
+      2. Run, from the cloned repo directory (so `python3 -m twokeys` imports):
+           TWOKEYS_STATE=~/.twokeys/state.json python3 -m twokeys scope --by-id "<sender id>" --by-name "<sender name>" "<the request text>"
+         Use exactly ~/.twokeys/state.json (or the shared state_file if it expanded
+         to a real path). Never invent a tempfile and never reuse a `twokeys demo` leftover.
       3. Post the command's output to the room verbatim, in the thread of the request.
          Do not soften, reword or add a recommendation that disagrees with it.
       4. If the output says NEED DETAIL, ask the question it gives and wait.
@@ -85,12 +87,21 @@ agents:
          the request and every reply that mentions RQ-nnnn.
       3. Write both results, unedited, to evidence.json as
          {"participants": <list_participants result>, "messages": <messages from read_context>}.
-      4. Run: TWOKEYS_STATE={state_file} python3 -m twokeys execute RQ-nnnn --evidence evidence.json
-      5. Post the output verbatim. If it says NOT RUN or DENIED, that is final;
-         do not retry with different evidence, do not run any other command
-         that changes state, and do not try to approve it yourself.
+      4. Run, from the cloned repo directory:
+           TWOKEYS_STATE=~/.twokeys/state.json python3 -m twokeys execute RQ-nnnn --evidence evidence.json
+         Use exactly ~/.twokeys/state.json (or the shared state_file if it expanded
+         to a real path). Never invent a tempfile and never reuse a `twokeys demo` leftover.
+      5. Post the command's output verbatim. Do not invent a decision and do not
+         try to approve the request yourself.
+         - If the output says no decision message from a person was found, or
+           that the request is still proposed: that is not final. Wait until a
+           different person posts approve/deny/amend RQ-nnnn, then repeat steps
+           1-5 with a fresh unedited evidence dump.
+         - DENIED, EXECUTED, and a NOT RUN that names another recorded reason
+           (unknown request, requester cannot be the second key, agents cannot
+           sign off) are final; do not retry those.
       6. After an EXECUTED or DENIED result, run
-           TWOKEYS_STATE={state_file} python3 -m twokeys ledger-md
+           TWOKEYS_STATE=~/.twokeys/state.json python3 -m twokeys ledger-md
          and save the output with create_room_document (name "twokeys-ledger")
          the first time, update_room_document afterwards.
 

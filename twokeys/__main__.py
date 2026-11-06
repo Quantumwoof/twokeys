@@ -65,7 +65,8 @@ def main(argv=None):
         return demo()
     if a.cmd == "reset":
         import os, shutil
-        d = os.path.dirname(a.state)
+        path = store.resolve(a.state)
+        d = os.path.dirname(path)
         shutil.rmtree(d, ignore_errors=True)
         print("state cleared:", d)
         return 0
