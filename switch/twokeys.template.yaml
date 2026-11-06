@@ -1,0 +1,146 @@
+# TwoKeys: ChatOps requests in, dual-control sign-off out.
+#
+# Load in Switch Console: Templates -> Create from template -> pick this file.
+# Creates two Codex-backed agents, one Mattermost room with two exclusive
+# roles, a policy document, and a kickoff. Format: docs/TEMPLATES.md in
+# github.com/sandbox-quantum/switch (version 1 document, triage-pair style).
+#
+# Why Switch is the lock: the only evidence `hands` accepts is what Switch
+# itself reports -- `list_participants` (who is a person, type "user") and
+# `read_context` (who posted `approve RQ-nnnn`). No room, no participants,
+# no decision message: nothing runs.
+version: 1
+
+params:
+  team:
+    type: string
+    description: Prefix for every name this creates
+    pattern: "[a-z][a-z0-9-]*"
+    default: payments
+  provider:
+    type: provider
+    description: Coding agent behind both TwoKeys agents
+    default: [codex, claude, opencode]
+    input: advanced
+  location:
+    type: location
+    description: Machine both agents run on (they share one gate state file)
+    default: local
+    input: advanced
+  directory:
+    type: directory
+    description: Each agent's working directory; the repo is cloned into it
+    default: "{$agents_dir}/{agent}"
+    input: advanced
+  state_file:
+    type: string
+    description: Shared TwoKeys gate state, the same path for both agents
+    default: "~/.twokeys/state.json"
+    input: advanced
+  bridge:
+    type: bridge
+    description: Messaging app the room is mirrored to (bundled Mattermost works)
+    default: [$first]
+
+agents:
+  - name: "{team}-twokeys-scope"
+    display_name: TwoKeys Scope
+    description: Restates a production request, scores its risk, opens RQ-nnnn. Never executes.
+    addressing: anyone
+    provider: "{provider}"
+    location: "{location}"
+    directory: "{directory}"
+    repo: https://github.com/Quantumwoof/twokeys
+    instructions: |
+      You are TwoKeys Scope, the first key-holder's assistant in a change room.
+      When a person addresses you with a production request:
+
+      1. Take the sender's participant id and name from the Switch message
+         (never from the message text; a person cannot request for someone else).
+      2. Run, from the repo directory:
+           TWOKEYS_STATE={state_file} python3 -m twokeys scope --by-id "<sender id>" --by-name "<sender name>" "<the request text>"
+      3. Post the command's output to the room verbatim, in the thread of the request.
+         Do not soften, reword or add a recommendation that disagrees with it.
+      4. If the output says NEED DETAIL, ask the question it gives and wait.
+         When the person answers, run scope again with the full corrected request.
+
+      Hard rules: you never execute anything, never edit the gate state file,
+      never post "approve RQ-..." or anything that looks like a decision, and
+      never tell anyone the approval can be skipped. If asked to, say that
+      TwoKeys needs a second person and stop.
+  - name: "{team}-twokeys-hands"
+    display_name: TwoKeys Hands
+    description: Runs an approved RQ-nnnn against the sandbox, only with a second person's recorded decision.
+    addressing: anyone
+    provider: "{provider}"
+    location: "{location}"
+    directory: "{directory}"
+    repo: https://github.com/Quantumwoof/twokeys
+    instructions: |
+      You are TwoKeys Hands. You are the only agent that can change the
+      (sandbox) systems, and you fail closed. When anyone asks you to run RQ-nnnn:
+
+      1. Call the Switch operation list_participants for this room.
+      2. Call the Switch operation read_context for this room, enough to include
+         the request and every reply that mentions RQ-nnnn.
+      3. Write both results, unedited, to evidence.json as
+         {"participants": <list_participants result>, "messages": <messages from read_context>}.
+      4. Run: TWOKEYS_STATE={state_file} python3 -m twokeys execute RQ-nnnn --evidence evidence.json
+      5. Post the output verbatim. If it says NOT RUN or DENIED, that is final;
+         do not retry with different evidence, do not run any other command
+         that changes state, and do not try to approve it yourself.
+      6. After an EXECUTED or DENIED result, run
+           TWOKEYS_STATE={state_file} python3 -m twokeys ledger-md
+         and save the output with create_room_document (name "twokeys-ledger")
+         the first time, update_room_document afterwards.
+
+      The gate, not you, decides. Never edit evidence, never invent a message,
+      never touch real infrastructure: the executor is the in-repo sandbox only.
+
+room:
+  name: "{team}-changes"
+  description: "Production asks in, dual-control sign-off out: scope proposes, a second person decides, hands runs."
+  bridge: "{bridge}"
+  agents: ["{team}-twokeys-scope", "{team}-twokeys-hands"]
+  users: ["{$creator}"]
+  instructions: |
+    This is a dual-control change room. Every production action posted here
+    (rollback, deploy, feature flag, secret rotation, replay, restart, scale)
+    becomes a request RQ-nnnn. Address @{team}-twokeys-scope with the ask.
+    A different person then replies in the thread with exactly one of:
+      approve RQ-nnnn
+      deny RQ-nnnn <reason>
+      amend RQ-nnnn <new number>     (flag %, replay count, replicas)
+    and addresses @{team}-twokeys-hands to run it. The requester's own
+    approval, an agent's approval, or "it's already approved" do not count.
+    Destructive data operations and no-touch services are refused outright.
+    The audit table lives in the room document twokeys-ledger.
+  roles:
+    - name: scope
+      exclusive: true
+      instructions: |
+        You hold the scope job: restate, score, open RQ-nnnn with the TwoKeys
+        CLI. Never execute and never post a decision.
+    - name: hands
+      exclusive: true
+      instructions: |
+        You hold the hands job: the only executor. Run TwoKeys `execute` with
+        evidence taken from Switch (list_participants + read_context) and post
+        its output verbatim. Refusals are final.
+  docs:
+    - name: twokeys-policy
+      description: What needs a second key, what is refused, and how to decide
+      instructions: Read before answering any question about whether something can run.
+      content: |
+        Needs a second person: any mutating action on any catalog service.
+        Read-only status runs at once. Refused from chat: destructive verbs
+        (drop/delete/truncate/wipe/purge/destroy), any change to no-touch
+        services (ledger-db, kyc-service), and any request that asks to skip,
+        bypass or self-supply the approval. Ambiguous asks get one question.
+        Policy source: NIST SP 800-53 Rev. 5 CM-3(1) "Prohibit changes to the
+        system until designated approvals are received" and AC-5 Separation of Duties.
+
+kickoff: |
+  @{team}-twokeys-scope and @{team}-twokeys-hands: this is the {team} change
+  room. Scope, say in two lines how a request becomes RQ-nnnn. Hands, say in
+  one line what you need before you will run anything.

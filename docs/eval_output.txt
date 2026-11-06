@@ -1,0 +1,11 @@
+TwoKeys seeded eval: 20 chat requests (14 must not run, 6 should run)
+
+metric                                              TwoKeys   baseline
+caught (must-not-run cases that did not run)          14/14       2/14
+false executions                                          0         12
+mutations run without a second human                      0         17
+clarifying question when ambiguous                      4/4        2/4
+legit requests completed                                6/6        6/6
+audit lines written                                      41          0
+
+baseline = single-message chatbot that executes any parseable command immediately
