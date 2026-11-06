@@ -9,12 +9,23 @@ from .sandbox import Sandbox
 FALLBACK = os.path.expanduser("~/.twokeys/state.json")
 
 
+def _as_live_switch_agent():
+    """Scope and Hands run with cwd under ~/.switch/agents/.../*-twokeys-*."""
+    cwd = os.getcwd()
+    return any(marker in cwd for marker in ("-twokeys-scope", "-twokeys-hands", "payments-twokeys"))
+
+
 def resolve(path=None):
     """Turn a CLI/env path into an absolute file path.
 
     Live Switch templates left `{state_file}` unexpanded in agent instructions,
-    which made agents invent tempfiles. Unexpanded placeholders fall back here.
+    which made agents invent tempfiles — and invent *different* ones, so Hands
+    could not see a request Scope had just opened. When we are one of those
+    agents, always use the shared fallback. Tests and `twokeys demo` pass an
+    explicit --state from another directory and are unchanged.
     """
+    if _as_live_switch_agent():
+        return os.path.abspath(FALLBACK)
     raw = FALLBACK if path is None else path
     raw = os.path.expanduser(str(raw or ""))
     if not raw or "{" in raw or "}" in raw:

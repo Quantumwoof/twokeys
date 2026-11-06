@@ -104,3 +104,15 @@ def test_placeholder_state_path_falls_back(tmp_path, monkeypatch, capsys):
     assert "{" not in store.resolve("{state_file}")
     assert store.resolve("{state_file}").endswith(".twokeys/state.json")
     assert store.resolve("~/.twokeys/state.json").endswith(".twokeys/state.json")
+
+
+def test_live_agent_cwd_shares_canonical_state(tmp_path, monkeypatch):
+    from twokeys import store
+    monkeypatch.chdir(tmp_path)
+    invented = str(tmp_path / "tmpXYZ" / "state.json")
+    assert store.resolve(invented) == invented or store.resolve("{state_file}").endswith(".twokeys/state.json")
+    agent = tmp_path / "payments-twokeys-hands"
+    agent.mkdir()
+    monkeypatch.chdir(agent)
+    assert store.resolve(invented) == store.resolve("{state_file}")
+    assert store.resolve(invented).endswith(".twokeys/state.json")
